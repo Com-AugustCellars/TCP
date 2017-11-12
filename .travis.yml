@@ -7,8 +7,8 @@ os:
   - osx
 
 env:
-  - SLN=CoAP.NET45.sln
-    TARGET=NET45
+  - SLN=TCP.NET652.sln
+    TARGET=NET652
     VERSION=Release
 
 install:

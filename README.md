@@ -7,7 +7,7 @@ The Constrained Application Protocol (CoAP) (https://datatracker.ietf.org/doc/dr
 is a RESTful web transfer protocol for resource-constrained networks and nodes.
 CoAP.NET is an implementation in C# providing CoAP-based services to .NET applications.
 
-The base specification uses UDP as the transport for sending messages.  [CoAP-TCP](https://) provides a definition of how to use TCP with or without TLS as a transport protocol.  The use of TLS allows for reliable transport which can be advantagous in some circumstances, although with a corresponding increase in the code footprint and network traffic.
+The base specification uses UDP as the transport for sending messages.  [CoAP-TCP](https://datatracker.ietf.org/doc/draft-ietf-core-coap-tcp-tls/) provides a definition of how to use TCP with or without TLS as a transport protocol.  The use of TLS allows for reliable transport which can be advantagous in some circumstances, although with a corresponding increase in the code footprint and network traffic.
 
 This project provides an implementation of the TCP and TLS connectors that can be used with the [CoAP.NET implementation](https://www.nuget.org/packages/Com.AugustCellars.CoAP).
 
