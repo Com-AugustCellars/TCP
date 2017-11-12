@@ -7,8 +7,8 @@ os:
   - osx
 
 env:
-  - SLN=TCP.Net652.sln
-    TARGET=Net652
+  - SLN=TCP.Net462.sln
+    TARGET=Net462
     VERSION=Release
 
 install:
