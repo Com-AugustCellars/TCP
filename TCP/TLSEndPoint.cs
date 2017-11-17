@@ -11,38 +11,39 @@ using Com.AugustCellars.CoAP.Net;
 namespace Com.AugustCellars.CoAP.TLS
 {
     /// <summary>
-    /// A CoAP End Point that uses TCP as the underlying transport rather than the
-    /// default UDP.  This version is designed for servers, clients should use
-    /// <cref target="TcpClientEndPoint"/> if they are only planning to do origination.
+    /// An implemention of a CoAP End Point that uses TLS as the underlying
+    /// transport rather than UDP.  This endpoint class is designed for servers,
+    /// for pure clients that are only doing requests they should use
+    /// <cref target="TLSClientEndPoint"/>.
     /// </summary>
-    public class TcpEndPoint : CoAPEndPoint
+    public class TLSEndPoint : CoAPEndPoint
     {
         /// <inheritdoc/>
-        public TcpEndPoint() : this(0, CoapConfig.Default)
+        public TLSEndPoint() : this(0, CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TcpEndPoint(ICoapConfig config) : this(0, config)
+        public TLSEndPoint(ICoapConfig config) : this(0, config)
         {
         }
 
         /// <inheritdoc/>
-        public TcpEndPoint(Int32 port) : this(new TLSChannel(port), CoapConfig.Default)
+        public TLSEndPoint(Int32 port) : this(new TLSChannel(port), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TcpEndPoint(Int32 port, ICoapConfig config) : this (new TLSChannel(port), config)
+        public TLSEndPoint(Int32 port, ICoapConfig config) : this (new TLSChannel(port), config)
         { }
 
         /// <inheritdoc/>
-        public TcpEndPoint(System.Net.EndPoint localEP) : this(new TLSChannel(localEP), CoapConfig.Default)
+        public TLSEndPoint(System.Net.EndPoint localEP) : this(new TLSChannel(localEP), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TcpEndPoint(System.Net.EndPoint localEP, ICoapConfig config) : this(new TLSChannel(localEP), config)
+        public TLSEndPoint(System.Net.EndPoint localEP, ICoapConfig config) : this(new TLSChannel(localEP), config)
         {
         }
 
@@ -51,7 +52,7 @@ namespace Com.AugustCellars.CoAP.TLS
         /// </summary>
         /// <param name="channel"></param>
         /// <param name="config"></param>
-        public TcpEndPoint(TLSChannel channel, ICoapConfig config) : base(channel, config)
+        public TLSEndPoint(TLSChannel channel, ICoapConfig config) : base(channel, config)
         {
             Stack.Remove(Stack.Get("Reliability"));
             MessageEncoder = TlsCoapMesageEncoder;

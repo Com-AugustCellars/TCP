@@ -10,15 +10,15 @@ namespace Com.AugustCellars.CoAP.TLS
     /// <summary>
     /// QueueItems are used for items in the 
     /// </summary>
-    public class QueueItem
+    internal class QueueItem
     {
 
 
         private readonly byte[] _data;
-        private readonly TcpSession _session;
+        private readonly ISession _session;
 
  
-        public QueueItem(TcpSession session, byte[] data)
+        public QueueItem(ISession session, byte[] data)
         {
             _data = data;
             _session = session;
@@ -26,6 +26,6 @@ namespace Com.AugustCellars.CoAP.TLS
 
         public byte[] Data { get { return _data; } }
         public int Length { get { return Data.Length;  } }
-        public TcpSession Session { get { return _session; } }
+        public ISession Session { get { return _session; } }
     }
 }

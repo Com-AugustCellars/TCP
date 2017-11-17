@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Debug\TCP.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -136,16 +137,21 @@
     <Compile Include="TCPMessageDecoder.cs" />
     <Compile Include="TCPMessageEncoder.cs" />
     <Compile Include="TCPSession.cs" />
+    <Compile Include="TLSChannel.cs" />
+    <Compile Include="TLSClientChannel.cs" />
+    <Compile Include="TLSClientEndPoint.cs" />
+    <Compile Include="TLSEndPoint.cs" />
+    <Compile Include="TLSSession.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\CoAP-CSharp\CoAP.NET\CoAP.NET45.csproj">
       <Project>{45db1e45-4831-4e4a-bb1e-ae92eea182e3}</Project>
       <Name>CoAP.NET45</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="app.config" />
-    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
