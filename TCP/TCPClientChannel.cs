@@ -16,9 +16,6 @@ namespace Com.AugustCellars.CoAP.TLS
         public const Int32 DefaultReceivePacketSize = 4096;
 
         private readonly System.Net.EndPoint _localEndPoint;
-        private Int32 _receiveBufferSize = DefaultReceivePacketSize;
-        private Int32 _sendBufferSize;
-        private Int32 _receivePacketSize;
         private readonly int _port;
 
         /// <summary>
@@ -58,27 +55,18 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <summary>
         /// Gets or sets the <see cref="Socket.ReceiveBufferSize"/>.
         /// </summary>
-        public Int32 ReceiveBufferSize {
-            get => _receiveBufferSize;
-            set => _receiveBufferSize = value;
-        }
+        public Int32 ReceiveBufferSize { get; set; } = DefaultReceivePacketSize;
 
         /// <summary>
         /// Gets or sets the <see cref="Socket.SendBufferSize"/>.
         /// </summary>
-        public Int32 SendBufferSize {
-            get => _sendBufferSize;
-            set => _sendBufferSize = value;
-        }
+        public Int32 SendBufferSize { get; set; }
 
         /// <summary>
         /// Gets or sets the size of buffer for receiving packet.
         /// The default value is <see cref="DefaultReceivePacketSize"/>.
         /// </summary>
-        public Int32 ReceivePacketSize {
-            get => _receivePacketSize;
-            set => _receivePacketSize = value;
-        }
+        public Int32 ReceivePacketSize { get; set; }
 
         private Int32 _running;
 

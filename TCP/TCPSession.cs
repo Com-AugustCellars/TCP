@@ -32,16 +32,14 @@ namespace Com.AugustCellars.CoAP.TLS
 
         public ConcurrentQueue<QueueItem> Queue { get { return _queue; } }
 
-        public NetworkStream Stream
-        {
-            get
-            {
+        public NetworkStream Stream {
+            get {
                 if (_stm == null) _stm = _client.GetStream();
                 return _stm;
             }
         }
 
-        public IPEndPoint EndPoint {  get { return _ipEndPoint; } }
+        public IPEndPoint EndPoint { get { return _ipEndPoint; } }
 
         public bool IsReliable => true;
 
@@ -63,11 +61,20 @@ namespace Com.AugustCellars.CoAP.TLS
 
             _stm = _client.GetStream();
 
-            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+            //  Send over the capability block
 
             SendCSMSignal();
 
-            _queue.Enqueue(_toSend);
+            //  
+
+            if (_toSend != null) {
+                _queue.Enqueue(_toSend);
+                _toSend = null;
+            }
+
+            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+
+            WriteData();
         }
 
         public void Stop()
@@ -132,7 +139,13 @@ namespace Com.AugustCellars.CoAP.TLS
             }
         }
 
+
         private byte[] _buffer = new byte[2048];
+
+        public void BeginRead()
+        {
+            Stream.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+        }
 
         private static void ReadCallback(IAsyncResult ar)
         {
@@ -155,7 +168,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 Array.Copy(_carryOver, bytes, _carryOver.Length);
                 Array.Copy(_buffer, 0, bytes, _carryOver.Length, cbRead);
             }
-            else Array.Copy(bytes, _buffer, cbRead);
+            else Array.Copy(_buffer, bytes, cbRead);
 
             int cbLeft = bytes.Length;
 
