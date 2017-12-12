@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Com.AugustCellars.CoAP.Channel;
 using System.Threading.Tasks;
+using Com.AugustCellars.COSE;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
@@ -19,33 +20,45 @@ namespace Com.AugustCellars.CoAP.TLS
         private Int32 _port;
         private Int32 _running;
         private TcpListener _listener;
+        private readonly KeySet _signingKeys;
+        private readonly KeySet _clientKeys;
 
         /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
- 
+
         /// <summary>
         /// Initialize a TCP channel with a random port.
         /// </summary>
-        public TLSChannel() : this(0)
+        /// <param name="signingKeys">Keys the server can sign with</param>
+        /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
+        public TLSChannel(KeySet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0)
         { }
 
         /// <summary>
         /// Initialize a TCP Channel with the specific endpoint port.
         /// </summary>
+        /// <param name="signingKeys">Keys the server can sign with</param>
+        /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
         /// <param name="port"></param>
-        public TLSChannel(Int32 port)
+        public TLSChannel(KeySet signingKeys, KeySet clientKeys, Int32 port)
         {
             _port = port;
+            _signingKeys = signingKeys;
+            _clientKeys = clientKeys;
         }
 
         /// <summary>
         /// Initialize a TCP channel with an endpoint
         /// </summary>
+        /// <param name="signingKeys">Keys the server can sign with</param>
+        /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
         /// <param name="localEP"></param>
-        public TLSChannel(System.Net.EndPoint localEP)
+        public TLSChannel(KeySet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP)
         {
             _localEP = localEP;
+            _signingKeys = signingKeys;
+            _clientKeys = clientKeys;
         }
 
         /// <inheritdoc/>
@@ -148,15 +161,17 @@ namespace Com.AugustCellars.CoAP.TLS
 
         private void DoAccept(TcpClient tcpClient)
         {
-            TLSSession session = new TLSSession(tcpClient, null);
+            TLSSession session = new TLSSession(tcpClient, _clientKeys, _signingKeys);
 
             AddSession(session);
+            StartAccepts();
 
             session.DataReceived += this.DataReceived;
+            session.Accept();
+
             session.BeginRead();
             session.SendCSMSignal();
 
-            StartAccepts();
         }
 
         private void NewTcpClient(TcpClient soTcp)
@@ -182,68 +197,6 @@ namespace Com.AugustCellars.CoAP.TLS
                 }
             }
             return null;
-        }
-
-        private void StreamListener(TLSSession soTcp)
-        {
-            try {
-
-                NetworkStream stream = soTcp.Stream;
-
-                byte[] bytes = new byte[1163];
-                int offset = 0;
-                int messageSize;
-
-                //  Start by sending the capability message
-                byte[] data = { 0x10, 0xE1, 0x40 };
-                stream.Write(data, 0, data.Length);
-
-                while (true) {
-                    int i = stream.Read(bytes, offset, bytes.Length-offset);
-                    i += offset;
-
-                    while (i > 0) {
-                        //  Do I have a full record?
-
-                        int dataSize = (bytes[0] >> 4) & 0xf;
-                        switch (dataSize) {
-                            case 13:
-                                messageSize = bytes[1] + 13 + 3;
-                                break;
-
-                            case 14:
-                                messageSize = (bytes[1] * 256 + bytes[2]) + 269 + 4;
-                                break;
-
-                            case 15:
-                                messageSize = ((bytes[1] * 256 + bytes[2]) * 256 + bytes[3]) * 256 + bytes[4] + 65805 + 6;
-                                break;
-
-                            default:
-                                messageSize = dataSize + 2;
-                                break;
-                        }
-                        messageSize += (bytes[0] & 0xf); // Add token buffer
-
-                        if (i >= messageSize) {
-                            byte[] message = new byte[messageSize];
-                            Array.Copy(bytes, message, messageSize);
-                            Array.Copy(bytes, messageSize, bytes, 0, i - messageSize);
-                            offset = i - messageSize;
-                            i -= messageSize;
-
-                            FireDataReceived(message, soTcp.EndPoint, soTcp);
-                        }
-                        else {
-                            break;
-                        }
-                    }
-                }
-
-            }
-            catch (Exception  e) {
-                Console.WriteLine("StreamListener --> " + e.ToString());
-            }
         }
 
         private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, TLSSession tcpSession)

@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace Com.AugustCellars.CoAP.TLS
 {
     /// <summary>
-    /// Implement TLS as a channel for the CoAP protocol
+    /// Implement TCP as a channel for the CoAP protocol
     /// </summary>
     public class TCPChannel : IChannel
     {
@@ -151,7 +151,7 @@ namespace Com.AugustCellars.CoAP.TLS
 
         private void DoAccept(TcpClient tcpClient)
         {
-            TLSSession session = new TLSSession(tcpClient, null);
+            TcpSession session = new TcpSession(tcpClient);
 
             AddSession(session);
 
@@ -293,7 +293,7 @@ namespace Com.AugustCellars.CoAP.TLS
         {
             IPEndPoint ipEP = (IPEndPoint)ep;
 
-            TLSSession sessionX = FindSession(ipEP);
+            TcpSession sessionX = FindSession(ipEP);
 
             return sessionX;
         }

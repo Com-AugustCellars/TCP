@@ -4,6 +4,7 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Com.AugustCellars.COSE;
 using Com.AugustCellars.CoAP;
 using Com.AugustCellars.CoAP.Codec;
 using Com.AugustCellars.CoAP.Net;
@@ -19,31 +20,31 @@ namespace Com.AugustCellars.CoAP.TLS
     public class TLSEndPoint : CoAPEndPoint
     {
         /// <inheritdoc/>
-        public TLSEndPoint() : this(0, CoapConfig.Default)
+        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0, CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(ICoapConfig config) : this(0, config)
+        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, ICoapConfig config) : this(signingKeys, clientKeys, 0, config)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(Int32 port) : this(new TLSChannel(port), CoapConfig.Default)
+        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, Int32 port) : this(new TLSChannel(signingKeys, clientKeys, port), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(Int32 port, ICoapConfig config) : this (new TLSChannel(port), config)
+        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, Int32 port, ICoapConfig config) : this (new TLSChannel(signingKeys, clientKeys, port), config)
         { }
 
         /// <inheritdoc/>
-        public TLSEndPoint(System.Net.EndPoint localEP) : this(new TLSChannel(localEP), CoapConfig.Default)
+        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP) : this(new TLSChannel(signingKeys, clientKeys, localEP), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(System.Net.EndPoint localEP, ICoapConfig config) : this(new TLSChannel(localEP), config)
+        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP, ICoapConfig config) : this(new TLSChannel(signingKeys, clientKeys, localEP), config)
         {
         }
 
