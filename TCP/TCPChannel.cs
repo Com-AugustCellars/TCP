@@ -158,6 +158,7 @@ namespace Com.AugustCellars.CoAP.TLS
             session.DataReceived += this.DataReceived;
             session.BeginRead();
             session.SendCSMSignal();
+            session.WriteData();
 
             StartAccepts();
         }

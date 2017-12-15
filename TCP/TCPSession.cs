@@ -53,6 +53,12 @@ namespace Com.AugustCellars.CoAP.TLS
         /// </summary>
         public int MaxSendSize { get; set; } = 1152;
 
+        /// <summary>
+        /// Has the session been marked as closed?
+        /// </summary>
+        private bool Closed { get; set; } = false;
+    
+
         public void Connect()
         {
             _client = new TcpClient(_ipEndPoint.AddressFamily);
@@ -107,7 +113,7 @@ namespace Com.AugustCellars.CoAP.TLS
             }
 
             op = Option.Create(OptionType.Signal_MaxMessageSize);
-            op.IntValue = 1152; // 2048;
+            op.IntValue = 4096+200; // 2048;
             signal.AddOption(op);
 
             byte[] data;
@@ -121,16 +127,22 @@ namespace Com.AugustCellars.CoAP.TLS
         public void WriteData()
         {
             if (_queue.Count == 0) return;
+            if (Closed) return;
             lock (_writeLock) {
                 if (_writing > 0) return;
                 _writing = 1;
             }
 
-            while (Queue.Count > 0) {
-                QueueItem q;
-                if (!_queue.TryDequeue(out q)) break;
+            try {
+                while (Queue.Count > 0) {
+                    QueueItem q;
+                    if (!_queue.TryDequeue(out q)) break;
 
-                _stm.Write(q.Data, 0, q.Data.Length);
+                    _stm.Write(q.Data, 0, q.Data.Length);
+                }
+            }
+            catch (System.IO.IOException e) {
+                Closed = true;
             }
 
             lock (_writeLock) {
@@ -149,13 +161,17 @@ namespace Com.AugustCellars.CoAP.TLS
 
         private static void ReadCallback(IAsyncResult ar)
         {
+            TcpSession session = (TcpSession)ar.AsyncState;
             try {
-                TcpSession session = (TcpSession)ar.AsyncState;
 
                 int cbRead = session._stm.EndRead(ar);
                 session.ProcessInput(cbRead);
             }
             catch (ObjectDisposedException) {
+                ; // Ignore this error
+            }
+            catch (System.IO.IOException e) {
+                session.Closed = true;               
                 ; // Ignore this error
             }
         }
