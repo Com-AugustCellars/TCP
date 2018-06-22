@@ -148,7 +148,6 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <summary>
         /// Start up a session on the server side
         /// </summary>
-        /// <param name="message">What was the last message we got?</param>
         public void Accept()
         {
             TlsServerProtocol serverProtocol = new TlsServerProtocol(new SecureRandom());

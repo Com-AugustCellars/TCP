@@ -269,7 +269,7 @@ namespace Com.AugustCellars.CoAP.TLS
                     IPEndPoint ipEP = (IPEndPoint)ep;
 
                     TcpSession sessionX = FindSession(ipEP);
-                    if (session == null) {
+                    if (sessionX == null) {
 
                         sessionX = new TcpSession(ipEP, new QueueItem(null, data));
                         sessionX.Connect();
