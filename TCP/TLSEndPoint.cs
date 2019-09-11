@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Com.AugustCellars.COSE;
 using Com.AugustCellars.CoAP;
 using Com.AugustCellars.CoAP.Codec;
+using Com.AugustCellars.CoAP.DTLS;
 using Com.AugustCellars.CoAP.Net;
 
 namespace Com.AugustCellars.CoAP.TLS
@@ -20,31 +21,31 @@ namespace Com.AugustCellars.CoAP.TLS
     public class TLSEndPoint : CoAPEndPoint
     {
         /// <inheritdoc/>
-        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0, CoapConfig.Default)
+        public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0, CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, ICoapConfig config) : this(signingKeys, clientKeys, 0, config)
+        public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys, ICoapConfig config) : this(signingKeys, clientKeys, 0, config)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, Int32 port) : this(new TLSChannel(signingKeys, clientKeys, port), CoapConfig.Default)
+        public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys, Int32 port) : this(new TLSChannel(signingKeys, clientKeys, port), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, Int32 port, ICoapConfig config) : this (new TLSChannel(signingKeys, clientKeys, port), config)
+        public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys, Int32 port, ICoapConfig config) : this (new TLSChannel(signingKeys, clientKeys, port), config)
         { }
 
         /// <inheritdoc/>
-        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP) : this(new TLSChannel(signingKeys, clientKeys, localEP), CoapConfig.Default)
+        public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP) : this(new TLSChannel(signingKeys, clientKeys, localEP), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TLSEndPoint(KeySet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP, ICoapConfig config) : this(new TLSChannel(signingKeys, clientKeys, localEP), config)
+        public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP, ICoapConfig config) : this(new TLSChannel(signingKeys, clientKeys, localEP), config)
         {
         }
 

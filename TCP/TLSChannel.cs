@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Com.AugustCellars.CoAP.Channel;
 using System.Threading.Tasks;
+using Com.AugustCellars.CoAP.DTLS;
 using Com.AugustCellars.COSE;
 
 namespace Com.AugustCellars.CoAP.TLS
@@ -20,7 +21,7 @@ namespace Com.AugustCellars.CoAP.TLS
         private Int32 _port;
         private Int32 _running;
         private TcpListener _listener;
-        private readonly KeySet _signingKeys;
+        private readonly TlsKeyPairSet _signingKeys;
         private readonly KeySet _clientKeys;
 
         /// <inheritdoc/>
@@ -32,7 +33,7 @@ namespace Com.AugustCellars.CoAP.TLS
         /// </summary>
         /// <param name="signingKeys">Keys the server can sign with</param>
         /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
-        public TLSChannel(KeySet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0)
+        public TLSChannel(TlsKeyPairSet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0)
         { }
 
         /// <summary>
@@ -41,7 +42,7 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <param name="signingKeys">Keys the server can sign with</param>
         /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
         /// <param name="port"></param>
-        public TLSChannel(KeySet signingKeys, KeySet clientKeys, Int32 port)
+        public TLSChannel(TlsKeyPairSet signingKeys, KeySet clientKeys, Int32 port)
         {
             _port = port;
             _signingKeys = signingKeys;
@@ -54,7 +55,7 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <param name="signingKeys">Keys the server can sign with</param>
         /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
         /// <param name="localEP"></param>
-        public TLSChannel(KeySet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP)
+        public TLSChannel(TlsKeyPairSet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP)
         {
             _localEP = localEP;
             _signingKeys = signingKeys;
@@ -82,6 +83,12 @@ namespace Com.AugustCellars.CoAP.TLS
         /// The default value is <see cref="DefaultReceivePacketSize"/>.
         /// </summary>
         public Int32 ReceivePacketSize { get; set; }
+
+        /// <inheritdoc/>
+        public bool AddMulticastAddress(IPEndPoint ep)
+        {
+            return false;
+        }
 
         /// <inheritdoc/>
         public void Start()
@@ -199,11 +206,11 @@ namespace Com.AugustCellars.CoAP.TLS
             return null;
         }
 
-        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, TLSSession tcpSession)
+        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint epLocal, TLSSession tcpSession)
         {
             EventHandler<DataReceivedEventArgs> h = DataReceived;
             if (h != null) {
-                h(this, new DataReceivedEventArgs(data, ep, tcpSession));
+                h(this, new DataReceivedEventArgs(data, ep, epLocal, tcpSession));
             }
         }
         

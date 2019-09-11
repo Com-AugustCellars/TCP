@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using Com.AugustCellars.CoAP.DTLS;
 using Org.BouncyCastle.Crypto.Tls;
 
 using Com.AugustCellars.COSE;
@@ -14,10 +14,10 @@ namespace Com.AugustCellars.CoAP.TLS
 {
     class TlsServer : DefaultTlsServer
     {
-        private KeySet _serverKeys;
+        private TlsKeyPairSet _serverKeys;
         private KeySet _userKeys;
 
-        internal TlsServer(KeySet serverKeys, KeySet userKeys)
+        internal TlsServer(TlsKeyPairSet serverKeys, KeySet userKeys)
         {
             _serverKeys = serverKeys;
             _userKeys = userKeys;
@@ -125,7 +125,7 @@ namespace Com.AugustCellars.CoAP.TLS
 
         protected virtual TlsKeyExchange CreatePskKeyExchange(int keyExchange)
         {
-            return new TlsPskKeyExchange(keyExchange, mSupportedSignatureAlgorithms, null, mPskIdentityManager,
+            return new TlsPskKeyExchange(keyExchange, mSupportedSignatureAlgorithms, null, mPskIdentityManager, null,
                 GetDHParameters(), mNamedCurves, mClientECPointFormats, mServerECPointFormats);
         }
 

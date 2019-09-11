@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using Com.AugustCellars.CoAP.Channel;
 using Com.AugustCellars.CoAP;
+using Com.AugustCellars.CoAP.DTLS;
 using Com.AugustCellars.COSE;
 using Org.BouncyCastle.Crypto.Tls;
 using PeterO.Cbor;
@@ -21,7 +22,7 @@ namespace Com.AugustCellars.CoAP.TLS
         private NetworkStream _stm;
         private readonly OneKey _userKey;
         private readonly KeySet _clientKeys;
-        private readonly KeySet _signingKeys;
+        private readonly TlsKeyPairSet _signingKeys;
         private OneKey _authKey;
         private TLSClient _tlsSession;
         private TlsServerProtocol _tlsServer;
@@ -36,7 +37,7 @@ namespace Com.AugustCellars.CoAP.TLS
             _userKey = tlsKey;
         }
 
-        public TLSSession(IPEndPoint ipEndPoint, QueueItem toSend, KeySet clientKeys, KeySet signingKeys)
+        public TLSSession(IPEndPoint ipEndPoint, QueueItem toSend, KeySet clientKeys, TlsKeyPairSet signingKeys)
         {
             _ipEndPoint = ipEndPoint;
             _toSend = toSend;
@@ -44,7 +45,7 @@ namespace Com.AugustCellars.CoAP.TLS
             _signingKeys = signingKeys;
         }
 
-        public TLSSession(TcpClient client, KeySet clientKeys, KeySet signingKeys)
+        public TLSSession(TcpClient client, KeySet clientKeys, TlsKeyPairSet signingKeys)
         {
             _client = client;
             _ipEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
@@ -337,7 +338,7 @@ namespace Com.AugustCellars.CoAP.TLS
                     offset = cbLeft - messageSize;
                     cbLeft -= messageSize;
 
-                    FireDataReceived(message, EndPoint, this);
+                    FireDataReceived(message, EndPoint, null, this); // M00BUG
                 }
                 else {
                     break;
@@ -357,11 +358,11 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
-        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, TLSSession tcpSession)
+        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint epLocal, TLSSession tcpSession)
         {
             EventHandler<DataReceivedEventArgs> h = DataReceived;
             if (h != null) {
-                h(this, new DataReceivedEventArgs(data, ep, tcpSession));
+                h(this, new DataReceivedEventArgs(data, ep, epLocal, tcpSession));
             }
         }
 

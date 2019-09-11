@@ -221,7 +221,7 @@ namespace Com.AugustCellars.CoAP.TLS
                     offset = cbLeft - messageSize;
                     cbLeft -= messageSize;
 
-                    FireDataReceived(message, EndPoint, this);
+                    FireDataReceived(message, EndPoint, null, this); // M00BUG
                 }
                 else {
                     break;
@@ -241,11 +241,11 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
-        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, TcpSession tcpSession)
+        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint epLocal, TcpSession tcpSession)
         {
             EventHandler<DataReceivedEventArgs> h = DataReceived;
             if (h != null) {
-                h(this, new DataReceivedEventArgs(data, ep, tcpSession));
+                h(this, new DataReceivedEventArgs(data, ep, epLocal, tcpSession));
             }
         }
 

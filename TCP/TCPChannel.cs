@@ -71,6 +71,12 @@ namespace Com.AugustCellars.CoAP.TLS
         public Int32 ReceivePacketSize { get; set; }
 
         /// <inheritdoc/>
+        public bool AddMulticastAddress(IPEndPoint ep)
+        {
+            return false;
+        }
+
+        /// <inheritdoc/>
         public void Start()
         {
             if (System.Threading.Interlocked.CompareExchange(ref _running, 1, 0) > 0) {
@@ -236,7 +242,7 @@ namespace Com.AugustCellars.CoAP.TLS
                             offset = i - messageSize;
                             i -= messageSize;
 
-                            FireDataReceived(message, soTcp.EndPoint, soTcp);
+                            FireDataReceived(message, soTcp.EndPoint, null, soTcp); // M00BUG
                         }
                         else {
                             break;
@@ -250,11 +256,11 @@ namespace Com.AugustCellars.CoAP.TLS
             }
         }
 
-        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, TcpSession tcpSession)
+        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint endPointLocal, TcpSession tcpSession)
         {
             EventHandler<DataReceivedEventArgs> h = DataReceived;
             if (h != null) {
-                h(this, new DataReceivedEventArgs(data, ep, tcpSession));
+                h(this, new DataReceivedEventArgs(data, ep, endPointLocal, tcpSession));
             }
         }
         

@@ -117,10 +117,12 @@ namespace Com.AugustCellars.CoAP.TLS
                 this._mContext = context;
             }
 
+#if SUPPORT_RPK
             public virtual void NotifyServerCertificate(AbstractCertificate x)
             {
                 
             }
+#endif
 
             public virtual void NotifyServerCertificate(Certificate serverCertificate)
             {
@@ -153,7 +155,7 @@ namespace Com.AugustCellars.CoAP.TLS
         };
         protected virtual TlsKeyExchange CreatePskKeyExchange(int keyExchange)
         {
-            return new TlsPskKeyExchange(keyExchange, mSupportedSignatureAlgorithms, _mPskIdentity, null, null, mNamedCurves,
+            return new TlsPskKeyExchange(keyExchange, mSupportedSignatureAlgorithms, _mPskIdentity, null, null, null, mNamedCurves,
                 mClientECPointFormats, mServerECPointFormats);
         }
 
