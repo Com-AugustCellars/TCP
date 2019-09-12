@@ -1,15 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.Contracts;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Com.AugustCellars.CoAP;
 using Com.AugustCellars.CoAP.Codec;
 using Com.AugustCellars.CoAP.Net;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
+    /// <summary>
+    /// A CoAP End Point that uses TCP as the underlying transport rather than the
+    /// default UDP.  This version is designed for servers, clients should use
+    /// <cref target="TcpClientEndPoint"/> if they are only planning to do origination.
+    /// </summary>
     public class TcpEndPoint : CoAPEndPoint
     {
         /// <inheritdoc/>
@@ -23,20 +22,21 @@ namespace Com.AugustCellars.CoAP.TLS
         }
 
         /// <inheritdoc/>
-        public TcpEndPoint(Int32 port) : this(new TcpChannel(port), CoapConfig.Default)
+        public TcpEndPoint(Int32 port) : this(new TCPChannel(port), CoapConfig.Default)
         {
         }
 
-        public TcpEndPoint(Int32 port, ICoapConfig config) : this (new TcpChannel(port), config)
+        /// <inheritdoc/>
+        public TcpEndPoint(Int32 port, ICoapConfig config) : this (new TCPChannel(port), config)
         { }
 
         /// <inheritdoc/>
-        public TcpEndPoint(System.Net.EndPoint localEP) : this(new TcpChannel(localEP), CoapConfig.Default)
+        public TcpEndPoint(System.Net.EndPoint localEP) : this(new TCPChannel(localEP), CoapConfig.Default)
         {
         }
 
         /// <inheritdoc/>
-        public TcpEndPoint(System.Net.EndPoint localEP, ICoapConfig config) : this(new TcpChannel(localEP), config)
+        public TcpEndPoint(System.Net.EndPoint localEP, ICoapConfig config) : this(new TCPChannel(localEP), config)
         {
         }
 
@@ -45,7 +45,7 @@ namespace Com.AugustCellars.CoAP.TLS
         /// </summary>
         /// <param name="channel"></param>
         /// <param name="config"></param>
-        public TcpEndPoint(TcpChannel channel, ICoapConfig config) : base(channel, config)
+        public TcpEndPoint(TCPChannel channel, ICoapConfig config) : base(channel, config)
         {
             Stack.Remove(Stack.Get("Reliability"));
             MessageEncoder = TlsCoapMesageEncoder;

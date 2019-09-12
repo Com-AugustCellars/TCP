@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using Com.AugustCellars.CoAP.Channel;
+    using Com.AugustCellars.COSE;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
@@ -11,37 +12,45 @@ namespace Com.AugustCellars.CoAP.TLS
     /// Low level channel for DTLS when dealing only with clients.
     /// This channel will not accept any connections from other parties.
     /// </summary>
-    internal class TCPClientChannel : IChannel
+    internal class TLSClientChannel : IChannel
     {
         public const Int32 DefaultReceivePacketSize = 4096;
 
         private readonly System.Net.EndPoint _localEndPoint;
         private readonly int _port;
 
+        private readonly OneKey _tlsKey;
+
         /// <summary>
         /// Create a client only channel and use a randomly assigned port on
         /// the client UDP port.
         /// </summary>
-        public TCPClientChannel() : this(0)
+        /// <param name="tlsKey">Authentication information</param>
+        public TLSClientChannel(OneKey tlsKey) : this(tlsKey, 0)
         {
+            _tlsKey = tlsKey;
         }
 
         /// <summary>
         /// Create a client only channel and use a given point
         /// </summary>
+        /// <param name="tlsKey">Authentication information</param>
         /// <param name="port">client side UDP port</param>
-        public TCPClientChannel(Int32 port)
+        public TLSClientChannel(OneKey tlsKey, Int32 port)
         {
             _port = port;
+            _tlsKey = tlsKey;
         }
 
         /// <summary>
         /// Create a client only channel and use a given endpoint
         /// </summary>
+        /// <param name="tlsKey">Authentication information</param>
         /// <param name="ep">client side endpoint</param>
-        public TCPClientChannel(System.Net.EndPoint ep)
+        public TLSClientChannel(OneKey tlsKey, System.Net.EndPoint ep)
         {
             _localEndPoint = ep;
+            _tlsKey = tlsKey;
         }
 
         /// <inheritdoc/>
@@ -95,7 +104,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 return;
 
             lock (_sessionList) {
-                foreach (TcpSession session in _sessionList) {
+                foreach (TLSSession session in _sessionList) {
                     session.Stop();
                 }
                 _sessionList.Clear();
@@ -136,7 +145,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 //  that is the only end point that can be used.
 
                 IPEndPoint ipEndPoint = (IPEndPoint)ep;
-                TcpSession tcpSession = (TcpSession)session;
+                TLSSession tcpSession = (TLSSession)session;
 
                 if (session == null) {
                     tcpSession = FindSession(ipEndPoint);
@@ -144,7 +153,7 @@ namespace Com.AugustCellars.CoAP.TLS
 
                         //  Create a new session to send with if we don't already have one
 
-                        tcpSession = new TcpSession(ipEndPoint, null /*DataReceived*/);
+                        tcpSession = new TLSSession(ipEndPoint, null /*DataReceived*/, _tlsKey);
                         AddSession(tcpSession);
 
                         tcpSession.Connect();
@@ -180,12 +189,12 @@ namespace Com.AugustCellars.CoAP.TLS
 
                 IPEndPoint ipEndPoint = (IPEndPoint)ep;
 
-                TcpSession session = FindSession(ipEndPoint);
+                TLSSession session = FindSession(ipEndPoint);
                 if (session == null) {
 
                     //  Create a new session to send with if we don't already have one
 
-                    session = new TcpSession(ipEndPoint,null /* DataReceived*/ );
+                    session = new TLSSession(ipEndPoint,null /* DataReceived*/, _tlsKey );
                     AddSession(session);
 
                     session.Connect();
@@ -198,7 +207,7 @@ namespace Com.AugustCellars.CoAP.TLS
             }
             catch (Exception e) {
 #if DEBUG
-                Console.WriteLine("Error in DTLSClientChannel Sending - " + e.ToString());
+                Console.WriteLine("Error in TLSClientChannel Sending - " + e.ToString());
 #endif
                 throw;
             }
@@ -207,7 +216,7 @@ namespace Com.AugustCellars.CoAP.TLS
         private void ReceiveData(Object sender, DataReceivedEventArgs e)
         {
             lock (_sessionList) {
-                foreach (TcpSession session in _sessionList) {
+                foreach (TLSSession session in _sessionList) {
                     if (e.EndPoint.Equals(session.EndPoint)) {
                         // session.ReceiveData(sender, e);
 
@@ -220,20 +229,20 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <summary>
         /// Keep track of all of the sessions that have been setup on this channel.
         /// </summary>
-        private readonly List<TcpSession> _sessionList = new List<TcpSession>();
+        private readonly List<TLSSession> _sessionList = new List<TLSSession>();
 
-        private void AddSession(TcpSession session)
+        private void AddSession(TLSSession session)
         {
             lock (_sessionList) {
                 _sessionList.Add(session);
             }
         }
 
-        private TcpSession FindSession(IPEndPoint ipEndPoint)
+        private TLSSession FindSession(IPEndPoint ipEndPoint)
         {
             lock (_sessionList) {
 
-                foreach (TcpSession session in _sessionList) {
+                foreach (TLSSession session in _sessionList) {
                     if (session.EndPoint.Equals(ipEndPoint))
                         return session;
                 }

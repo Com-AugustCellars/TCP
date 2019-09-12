@@ -7,45 +7,59 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Com.AugustCellars.CoAP.Channel;
 using System.Threading.Tasks;
+using Com.AugustCellars.CoAP.DTLS;
+using Com.AugustCellars.COSE;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
     /// <summary>
-    /// Implement TCP as a channel for the CoAP protocol
+    /// Implement TLS as a channel for the CoAP protocol
     /// </summary>
-    public class TCPChannel : IChannel
+    public class TLSChannel : IChannel
     {
         private System.Net.EndPoint _localEP;
         private Int32 _port;
         private Int32 _running;
         private TcpListener _listener;
+        private readonly TlsKeyPairSet _signingKeys;
+        private readonly KeySet _clientKeys;
 
         /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
- 
+
         /// <summary>
         /// Initialize a TCP channel with a random port.
         /// </summary>
-        public TCPChannel() : this(0)
+        /// <param name="signingKeys">Keys the server can sign with</param>
+        /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
+        public TLSChannel(TlsKeyPairSet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0)
         { }
 
         /// <summary>
         /// Initialize a TCP Channel with the specific endpoint port.
         /// </summary>
+        /// <param name="signingKeys">Keys the server can sign with</param>
+        /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
         /// <param name="port"></param>
-        public TCPChannel(Int32 port)
+        public TLSChannel(TlsKeyPairSet signingKeys, KeySet clientKeys, Int32 port)
         {
             _port = port;
+            _signingKeys = signingKeys;
+            _clientKeys = clientKeys;
         }
 
         /// <summary>
         /// Initialize a TCP channel with an endpoint
         /// </summary>
+        /// <param name="signingKeys">Keys the server can sign with</param>
+        /// <param name="clientKeys">PSK and RPK keys for client authentication</param>
         /// <param name="localEP"></param>
-        public TCPChannel(System.Net.EndPoint localEP)
+        public TLSChannel(TlsKeyPairSet signingKeys, KeySet clientKeys, System.Net.EndPoint localEP)
         {
             _localEP = localEP;
+            _signingKeys = signingKeys;
+            _clientKeys = clientKeys;
         }
 
         /// <inheritdoc/>
@@ -83,7 +97,6 @@ namespace Com.AugustCellars.CoAP.TLS
                 return;
             }
 
-
             if (_localEP != null) {
                 IPEndPoint ipep = (IPEndPoint) _localEP;
 
@@ -93,12 +106,10 @@ namespace Com.AugustCellars.CoAP.TLS
             else {
                 _listener = new TcpListener(IPAddress.IPv6Any, _port);
                 _listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, 0);
-
             }
 
             try {
                 _listener.Start();
-
             }
             catch (Exception) {
                 throw new Exception("Failed to start TCP connection");
@@ -157,16 +168,17 @@ namespace Com.AugustCellars.CoAP.TLS
 
         private void DoAccept(TcpClient tcpClient)
         {
-            TcpSession session = new TcpSession(tcpClient);
+            TLSSession session = new TLSSession(tcpClient, _clientKeys, _signingKeys);
 
             AddSession(session);
+            StartAccepts();
 
             session.DataReceived += this.DataReceived;
+            session.Accept();
+
             session.BeginRead();
             session.SendCSMSignal();
-            session.WriteData();
 
-            StartAccepts();
         }
 
         private void NewTcpClient(TcpClient soTcp)
@@ -174,19 +186,19 @@ namespace Com.AugustCellars.CoAP.TLS
 
         }
 
-        private static List<TcpSession> _sessionList = new List<TcpSession>();
-        private static void AddSession(TcpSession session)
+        private static List<TLSSession> _sessionList = new List<TLSSession>();
+        private static void AddSession(TLSSession session)
         {
             lock (_sessionList) {
                 _sessionList.Add(session);
             }
         }
 
-        private static TcpSession FindSession(IPEndPoint ipEP)
+        private static TLSSession FindSession(IPEndPoint ipEP)
         {
             lock (_sessionList) {
 
-                foreach (TcpSession session in _sessionList) {
+                foreach (TLSSession session in _sessionList) {
                     if (session.EndPoint.Equals(ipEP))
                         return session;
                 }
@@ -194,104 +206,43 @@ namespace Com.AugustCellars.CoAP.TLS
             return null;
         }
 
-        private void StreamListener(TcpSession soTcp)
-        {
-            try {
-
-                NetworkStream stream = soTcp.Stream;
-
-                byte[] bytes = new byte[1163];
-                int offset = 0;
-                int messageSize;
-
-                //  Start by sending the capability message
-                byte[] data = { 0x10, 0xE1, 0x40 };
-                stream.Write(data, 0, data.Length);
-
-                while (true) {
-                    int i = stream.Read(bytes, offset, bytes.Length-offset);
-                    i += offset;
-
-                    while (i > 0) {
-                        //  Do I have a full record?
-
-                        int dataSize = (bytes[0] >> 4) & 0xf;
-                        switch (dataSize) {
-                            case 13:
-                                messageSize = bytes[1] + 13 + 3;
-                                break;
-
-                            case 14:
-                                messageSize = (bytes[1] * 256 + bytes[2]) + 269 + 4;
-                                break;
-
-                            case 15:
-                                messageSize = ((bytes[1] * 256 + bytes[2]) * 256 + bytes[3]) * 256 + bytes[4] + 65805 + 6;
-                                break;
-
-                            default:
-                                messageSize = dataSize + 2;
-                                break;
-                        }
-                        messageSize += (bytes[0] & 0xf); // Add token buffer
-
-                        if (i >= messageSize) {
-                            byte[] message = new byte[messageSize];
-                            Array.Copy(bytes, message, messageSize);
-                            Array.Copy(bytes, messageSize, bytes, 0, i - messageSize);
-                            offset = i - messageSize;
-                            i -= messageSize;
-
-                            FireDataReceived(message, soTcp.EndPoint, null, soTcp); // M00BUG
-                        }
-                        else {
-                            break;
-                        }
-                    }
-                }
-
-            }
-            catch (Exception  e) {
-                Console.WriteLine("StreamListener --> " + e.ToString());
-            }
-        }
-
-        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint endPointLocal, TcpSession tcpSession)
+        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint epLocal, TLSSession tcpSession)
         {
             EventHandler<DataReceivedEventArgs> h = DataReceived;
             if (h != null) {
-                h(this, new DataReceivedEventArgs(data, ep, endPointLocal, tcpSession));
+                h(this, new DataReceivedEventArgs(data, ep, epLocal, tcpSession));
             }
         }
         
         /// <inheritdoc/>
         public void Send(byte[] data, ISession session, System.Net.EndPoint ep)
         {
-            TcpSession tcpSession;
-            //  Wrong code but let's get started
+            TLSSession tcpSession;
 
             try {
                 if (session == null) {
                     IPEndPoint ipEP = (IPEndPoint)ep;
 
-                    TcpSession sessionX = FindSession(ipEP);
-                    if (sessionX == null) {
+                    TLSSession sessionX = FindSession(ipEP);
+                    if (session == null) {
 
-                        sessionX = new TcpSession(ipEP, new QueueItem(null, data));
+                        sessionX = new TLSSession(ipEP, new QueueItem(null, data), null);
+                        sessionX.DataReceived += this.DataReceived;
+
                         sessionX.Connect();
                         AddSession(sessionX);
                     }
                     session = sessionX;
                 }
 
-                tcpSession = session as TcpSession;
+                tcpSession = session as TLSSession;
                 tcpSession.Queue.Enqueue(new QueueItem(tcpSession, data));
                 tcpSession.WriteData();
 
 
             }
             catch (Exception e) {
-                Console.WriteLine("Error in TCP Sending - " + e.ToString());
+                Console.WriteLine("Error in TLS Sending - " + e.ToString());
             }
         }
 
@@ -300,7 +251,7 @@ namespace Com.AugustCellars.CoAP.TLS
         {
             IPEndPoint ipEP = (IPEndPoint)ep;
 
-            TcpSession sessionX = FindSession(ipEP);
+            TLSSession sessionX = FindSession(ipEP);
 
             return sessionX;
         }

@@ -9,7 +9,7 @@ using Com.AugustCellars.CoAP;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
-    public class TcpSession : ISession
+    internal class TcpSession : ISession
     {
         private TcpClient _client;
         private readonly IPEndPoint _ipEndPoint;
@@ -32,16 +32,14 @@ namespace Com.AugustCellars.CoAP.TLS
 
         public ConcurrentQueue<QueueItem> Queue { get { return _queue; } }
 
-        public NetworkStream Stream
-        {
-            get
-            {
+        public NetworkStream Stream {
+            get {
                 if (_stm == null) _stm = _client.GetStream();
                 return _stm;
             }
         }
 
-        public IPEndPoint EndPoint {  get { return _ipEndPoint; } }
+        public IPEndPoint EndPoint { get { return _ipEndPoint; } }
 
         public bool IsReliable => true;
 
@@ -55,6 +53,12 @@ namespace Com.AugustCellars.CoAP.TLS
         /// </summary>
         public int MaxSendSize { get; set; } = 1152;
 
+        /// <summary>
+        /// Has the session been marked as closed?
+        /// </summary>
+        private bool Closed { get; set; } = false;
+    
+
         public void Connect()
         {
             _client = new TcpClient(_ipEndPoint.AddressFamily);
@@ -65,34 +69,18 @@ namespace Com.AugustCellars.CoAP.TLS
 
             //  Send over the capability block
 
-            SignalMessage signal = new SignalMessage(SignalCode.CSM);
-            Option op;
-            if (BlockTransfer) {
-                op = Option.Create(OptionType.Signal_BlockTransfer);
-                signal.AddOption(op);
-            }
-            
-            op = Option.Create(OptionType.Signal_MaxMessageSize);
-            op.IntValue = 1152; // 2048;
-            signal.AddOption(op);
-
-            byte[] data;
-            TLSMessageEncoder enc = new TLSMessageEncoder();
-
-            data = enc.Encode(signal); 
-
-            _stm.Write(data, 0, data.Length);
-            _stm.Flush();
+            SendCSMSignal();
 
             //  
 
             if (_toSend != null) {
-                _stm.Write(_toSend.Data, 0, _toSend.Length);
-                _stm.Flush();
+                _queue.Enqueue(_toSend);
                 _toSend = null;
             }
 
-            new Thread(() => StreamListener()).Start();
+            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+
+            WriteData();
         }
 
         public void Stop()
@@ -113,19 +101,48 @@ namespace Com.AugustCellars.CoAP.TLS
 
         public event EventHandler<SessionEventArgs> SessionEvent;
 
+        public void SendCSMSignal()
+        {
+            //  Send over the capability block
+
+            SignalMessage signal = new SignalMessage(SignalCode.CSM);
+            Option op;
+            if (BlockTransfer) {
+                op = Option.Create(OptionType.Signal_BlockTransfer);
+                signal.AddOption(op);
+            }
+
+            op = Option.Create(OptionType.Signal_MaxMessageSize);
+            op.IntValue = 4096+200; // 2048;
+            signal.AddOption(op);
+
+            byte[] data;
+            TLSMessageEncoder enc = new TLSMessageEncoder();
+
+            data = enc.Encode(signal);
+
+            _queue.Enqueue(new QueueItem(this, data));
+        }
+
         public void WriteData()
         {
             if (_queue.Count == 0) return;
+            if (Closed) return;
             lock (_writeLock) {
                 if (_writing > 0) return;
                 _writing = 1;
             }
 
-            while (Queue.Count > 0) {
-                QueueItem q;
-                if (!_queue.TryDequeue(out q)) break;
+            try {
+                while (Queue.Count > 0) {
+                    QueueItem q;
+                    if (!_queue.TryDequeue(out q)) break;
 
-                _stm.Write(q.Data, 0, q.Data.Length);
+                    _stm.Write(q.Data, 0, q.Data.Length);
+                }
+            }
+            catch (System.IO.IOException e) {
+                Closed = true;
             }
 
             lock (_writeLock) {
@@ -134,72 +151,101 @@ namespace Com.AugustCellars.CoAP.TLS
             }
         }
 
-        private void StreamListener()
+
+        private byte[] _buffer = new byte[2048];
+
+        public void BeginRead()
         {
+            Stream.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+        }
+
+        private static void ReadCallback(IAsyncResult ar)
+        {
+            TcpSession session = (TcpSession)ar.AsyncState;
             try {
 
-                NetworkStream stream = _client.GetStream();
+                int cbRead = session._stm.EndRead(ar);
+                session.ProcessInput(cbRead);
+            }
+            catch (ObjectDisposedException) {
+                ; // Ignore this error
+            }
+            catch (System.IO.IOException e) {
+                session.Closed = true;               
+                ; // Ignore this error
+            }
+        }
 
-                byte[] bytes = new byte[2048+1024];
-                int offset = 0;
+        private byte[] _carryOver = null;
+        private void ProcessInput(int cbRead)
+        {
+            byte[] bytes = new byte[(_carryOver != null ? _carryOver.Length : 0) + cbRead];
+            if (_carryOver != null) {
+                Array.Copy(_carryOver, bytes, _carryOver.Length);
+                Array.Copy(_buffer, 0, bytes, _carryOver.Length, cbRead);
+            }
+            else Array.Copy(_buffer, bytes, cbRead);
+
+            int cbLeft = bytes.Length;
+
+            while (cbLeft > 0) {
                 int messageSize;
 
-                while (true) {
-                    int i = stream.Read(bytes, offset, bytes.Length - offset);
-                    i += offset;
+                //  Do I have a full record?
 
-                    while (i > 0) {
-                        //  Do I have a full record?
+                int dataSize = (bytes[0] >> 4) & 0xf;
+                switch (dataSize) {
+                    case 13:
+                        messageSize = bytes[1] + 13 + 3;
+                        break;
 
-                        int dataSize = (bytes[0] >> 4) & 0xf;
-                        switch (dataSize) {
-                            case 13:
-                                messageSize = bytes[1] + 13 + 3;
-                                break;
+                    case 14:
+                        messageSize = (bytes[1] * 256 + bytes[2]) + 269 + 4;
+                        break;
 
-                            case 14:
-                                messageSize = (bytes[1] * 256 + bytes[2]) + 269 + 4;
-                                break;
+                    case 15:
+                        messageSize = ((bytes[1] * 256 + bytes[2]) * 256 + bytes[3]) * 256 + bytes[4] + 65805 + 6;
+                        break;
 
-                            case 15:
-                                messageSize = ((bytes[1] * 256 + bytes[2]) * 256 + bytes[3]) * 256 + bytes[4] + 65805 + 6;
-                                break;
-
-                            default:
-                                messageSize = dataSize + 2;
-                                break;
-                        }
-                        messageSize += (bytes[0] & 0xf); // Add token buffer
-
-                        if (i >= messageSize) {
-                            byte[] message = new byte[messageSize];
-                            Array.Copy(bytes, message, messageSize);
-                            Array.Copy(bytes, messageSize, bytes, 0, i - messageSize);
-                            offset = i - messageSize;
-                            i -= messageSize;
-
-                            FireDataReceived(message, EndPoint, this);
-                        }
-                        else {
-                            break;
-                        }
-                    }
+                    default:
+                        messageSize = dataSize + 2;
+                        break;
                 }
+                messageSize += (bytes[0] & 0xf); // Add token buffer
 
+                if (cbLeft >= messageSize) {
+                    byte[] message = new byte[messageSize];
+                    int offset;
+                    Array.Copy(bytes, message, messageSize);
+                    Array.Copy(bytes, messageSize, bytes, 0, cbLeft - messageSize);
+                    offset = cbLeft - messageSize;
+                    cbLeft -= messageSize;
+
+                    FireDataReceived(message, EndPoint, null, this); // M00BUG
+                }
+                else {
+                    break;
+                }
             }
-            catch (Exception e) {
-                Console.WriteLine("StreamListener --> " + e.ToString());
+
+            if (cbLeft > 0) {
+                _carryOver = new byte[cbLeft];
+                Array.Copy(bytes, _carryOver, cbLeft);
             }
+            else {
+                _carryOver = null;
+            }
+            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
         }
 
         /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
-        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, TcpSession tcpSession)
+        private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint epLocal, TcpSession tcpSession)
         {
             EventHandler<DataReceivedEventArgs> h = DataReceived;
             if (h != null) {
-                h(this, new DataReceivedEventArgs(data, ep, tcpSession));
+                h(this, new DataReceivedEventArgs(data, ep, epLocal, tcpSession));
             }
         }
 

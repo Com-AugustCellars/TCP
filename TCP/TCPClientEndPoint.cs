@@ -12,7 +12,7 @@ namespace Com.AugustCellars.CoAP.TLS
     /// <summary>
     /// Client only version of a DTLS end point.
     /// This end point will not accept new DTLS connections from other parities. 
-    /// If this is needed then <see cref="DTLSEndPoint"/> instead.
+    /// If this is needed then <see cref="TcpEndPoint"/> instead.
     /// </summary>
     public class TCPClientEndPoint : CoAPEndPoint
     {
