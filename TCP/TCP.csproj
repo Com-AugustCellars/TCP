@@ -28,7 +28,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;SUPPORT_RPK; SUPPORT_TLS_CWT</DefineConstants>
     <IntermediateOutputPath>obj\dev\Debug</IntermediateOutputPath>
     <OutputPath>bin\dev\Debug\</OutputPath>
   </PropertyGroup>

@@ -74,7 +74,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 Stack.Remove("Reliability");
                 MessageEncoder = TcpCoapMesageEncoder;
                 MessageDecoder = TcpCoapMessageDecoder;
-                EndpointSchema = "coap";
+                EndpointSchema = new []{"coap", "coap+tcp"};
             }
 
             /// <summary>

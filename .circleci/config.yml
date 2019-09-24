@@ -14,9 +14,13 @@ jobs:
            command: git clone --depth 1 https://github.com/cose-wg/Examples Regressions
 
        - run:
-           name: Unit Tests
+           name: Build
            command: |
               ls
               dotnet build --framework=netcoreapp2.0 TCP.Net462.sln
+
+       - run:
+           name: Unit Tests
+           command: |
               dotnet test --framework=netcoreapp2.0 TCP.Net462.sln
-           
+

@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27004.2006
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29306.81
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TCP.Net462", "TCP\TCP.Net462.csproj", "{D130F530-95E4-4B31-A339-471CB2A3D90F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TCP.Net462", "TCP\TCP.Net462.csproj", "{D130F530-95E4-4B31-A339-471CB2A3D90F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{B53626A2-A549-47F9-9C1B-16311C45A057}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,6 +20,12 @@ Global
 		{D130F530-95E4-4B31-A339-471CB2A3D90F}.Deploy|Any CPU.Build.0 = Debug|Any CPU
 		{D130F530-95E4-4B31-A339-471CB2A3D90F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D130F530-95E4-4B31-A339-471CB2A3D90F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B53626A2-A549-47F9-9C1B-16311C45A057}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B53626A2-A549-47F9-9C1B-16311C45A057}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B53626A2-A549-47F9-9C1B-16311C45A057}.Deploy|Any CPU.ActiveCfg = Debug|Any CPU
+		{B53626A2-A549-47F9-9C1B-16311C45A057}.Deploy|Any CPU.Build.0 = Debug|Any CPU
+		{B53626A2-A549-47F9-9C1B-16311C45A057}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B53626A2-A549-47F9-9C1B-16311C45A057}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

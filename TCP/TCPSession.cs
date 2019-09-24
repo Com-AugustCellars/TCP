@@ -78,7 +78,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 _toSend = null;
             }
 
-            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+            BeginRead();
 
             WriteData();
         }
@@ -235,7 +235,7 @@ namespace Com.AugustCellars.CoAP.TLS
             else {
                 _carryOver = null;
             }
-            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+            BeginRead();
         }
 
         /// <inheritdoc/>

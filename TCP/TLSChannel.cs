@@ -27,6 +27,8 @@ namespace Com.AugustCellars.CoAP.TLS
         /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
+        public event EventHandler<TlsEvent> TlsEventHandler;
+
 
         /// <summary>
         /// Initialize a TCP channel with a random port.
@@ -174,6 +176,7 @@ namespace Com.AugustCellars.CoAP.TLS
             StartAccepts();
 
             session.DataReceived += this.DataReceived;
+            session.TlsEventHandler += OnTlsEvent;
             session.Accept();
 
             session.BeginRead();
@@ -254,6 +257,15 @@ namespace Com.AugustCellars.CoAP.TLS
             TLSSession sessionX = FindSession(ipEP);
 
             return sessionX;
+        }
+
+        private void OnTlsEvent(Object o, TlsEvent e)
+        {
+            EventHandler<TlsEvent> handler = TlsEventHandler;
+            if (handler != null) {
+                handler(o, e);
+            }
+
         }
     }
 }

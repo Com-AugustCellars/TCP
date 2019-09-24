@@ -4,7 +4,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using Com.AugustCellars.CoAP.Channel;
-    using Com.AugustCellars.COSE;
+using Com.AugustCellars.CoAP.DTLS;
+using Com.AugustCellars.COSE;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
@@ -19,27 +20,19 @@ namespace Com.AugustCellars.CoAP.TLS
         private readonly System.Net.EndPoint _localEndPoint;
         private readonly int _port;
 
-        private readonly OneKey _tlsKey;
-
-        /// <summary>
-        /// Create a client only channel and use a randomly assigned port on
-        /// the client UDP port.
-        /// </summary>
-        /// <param name="tlsKey">Authentication information</param>
-        public TLSClientChannel(OneKey tlsKey) : this(tlsKey, 0)
-        {
-            _tlsKey = tlsKey;
-        }
+        private readonly TlsKeyPair _tlsKey;
+        public EventHandler<TlsEvent> TlsEventHandler;
+        public KeySet CwtTrustKeySet { get; set; }
 
         /// <summary>
         /// Create a client only channel and use a given point
         /// </summary>
         /// <param name="tlsKey">Authentication information</param>
         /// <param name="port">client side UDP port</param>
-        public TLSClientChannel(OneKey tlsKey, Int32 port)
+        public TLSClientChannel(TlsKeyPair tlsKey, int port)
         {
             _port = port;
-            _tlsKey = tlsKey;
+            _tlsKey = tlsKey ?? throw new ArgumentNullException(nameof(tlsKey));
         }
 
         /// <summary>
@@ -47,10 +40,10 @@ namespace Com.AugustCellars.CoAP.TLS
         /// </summary>
         /// <param name="tlsKey">Authentication information</param>
         /// <param name="ep">client side endpoint</param>
-        public TLSClientChannel(OneKey tlsKey, System.Net.EndPoint ep)
+        public TLSClientChannel(TlsKeyPair tlsKey, System.Net.EndPoint ep)
         {
             _localEndPoint = ep;
-            _tlsKey = tlsKey;
+            _tlsKey = tlsKey ?? throw new ArgumentNullException(nameof(tlsKey));
         }
 
         /// <inheritdoc/>
@@ -58,7 +51,7 @@ namespace Com.AugustCellars.CoAP.TLS
 
         /// <inheritdoc/>
         public System.Net.EndPoint LocalEndPoint {
-            get => (_localEndPoint == null) ? new IPEndPoint(IPAddress.IPv6Any, _port) : null;  // M00BUG
+            get => (_localEndPoint ?? new IPEndPoint(IPAddress.IPv6Any, _port));
         }
 
         /// <summary>
@@ -96,7 +89,7 @@ namespace Com.AugustCellars.CoAP.TLS
         }
 
         /// <summary>
-        /// Tell the channel to stop processing data cand clean itself up.
+        /// Tell the channel to stop processing data and clean itself up.
         /// </summary>
         public void Stop()
         {
@@ -149,13 +142,14 @@ namespace Com.AugustCellars.CoAP.TLS
 
                 if (session == null) {
                     tcpSession = FindSession(ipEndPoint);
-                    if (session == null) {
+                    if (tcpSession == null) {
 
                         //  Create a new session to send with if we don't already have one
 
                         tcpSession = new TLSSession(ipEndPoint, null /*DataReceived*/, _tlsKey);
                         AddSession(tcpSession);
 
+                        tcpSession.TlsEventHandler += OnTlsEvent;
                         tcpSession.Connect();
 
                         tcpSession.DataReceived += DataReceived;
@@ -243,8 +237,9 @@ namespace Com.AugustCellars.CoAP.TLS
             lock (_sessionList) {
 
                 foreach (TLSSession session in _sessionList) {
-                    if (session.EndPoint.Equals(ipEndPoint))
+                    if (session.EndPoint.Equals(ipEndPoint)) {
                         return session;
+                    }
                 }
             }
             return null;
@@ -256,5 +251,17 @@ namespace Com.AugustCellars.CoAP.TLS
             IPEndPoint ipEndPoint = (IPEndPoint)ep;
             return (ISession) FindSession(ipEndPoint);
         }
+
+
+        private void OnTlsEvent(Object o, TlsEvent e)
+        {
+            EventHandler<TlsEvent> handler = TlsEventHandler;
+            if (handler != null)
+            {
+                handler(o, e);
+            }
+
+        }
+
     }
 }
