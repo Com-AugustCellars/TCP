@@ -2,6 +2,8 @@
 
 [![NuGet Status](https://img.shields.io/nuget/v/Com.AugustCellars.CoAP.TCP.png)](https://www.nuget.org/packages/Com.AugustCellars.CoAP.TCP)
 [![Build Status](https://api.travis-ci.org/Com.AugustCellars/TCP.bpng)](https://travis-ci.org/Com.AugustCelalrs/TCP)
+[![Appveyor Build](https://ci.appveyor.com/api/projects/status/github/Com-AugustCellars/TCP?svg=true)](https://ci.appveyor.com/project/jimsch/coap-csharp)
+[![CircleCI](https://circleci.com/gh/Com-AugustCellars/TCP.svg?style=svg)](https://circleci.com/gh/Com-AugustCellars/TCP)
 
 The Constrained Application Protocol (CoAP) (https://datatracker.ietf.org/doc/draft-ietf-core-coap/)
 is a RESTful web transfer protocol for resource-constrained networks and nodes.
@@ -15,13 +17,13 @@ Reviews and suggestions would be appreciated.
 
 ## Copyright
 
-Copyright (c) 2017, Jim Schaad <ietf@augustcellars.com>
+Copyright (c) 2017-9, Jim Schaad <ietf@augustcellars.com>
 
 ## Content
 
 - [Quick Start](#quick-start)
 - [Build](#build)
-- [License](#liscense)
+- [License](#license)
 - [Acknowledgements](#acknowledgements)
 
 ## How to Install
@@ -64,7 +66,7 @@ A TCP endpoint is added to a CoAP server object in a similar manner.  As long as
 
 ## Building the sources
 
-I am currently sync-ed up to Visual Studio 2017 and have started using language features of C# v7.0 that are supported both in Visual Studio and in the latest version of mono.
+I am currently sync-ed up to Visual Studio 2019 and have started using language features of C# v7.0 that are supported both in Visual Studio and in the latest version of mono.
 
 ## License
 

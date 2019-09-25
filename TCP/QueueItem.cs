@@ -10,7 +10,7 @@ namespace Com.AugustCellars.CoAP.TLS
     /// <summary>
     /// QueueItems are used for items in the 
     /// </summary>
-    internal class QueueItem
+    public class QueueItem
     {
 
 

@@ -5,7 +5,6 @@ using System.Net.Sockets;
 using System.Collections.Concurrent;
 using System.Threading;
 using Com.AugustCellars.CoAP.Channel;
-using Com.AugustCellars.CoAP;
 using Com.AugustCellars.CoAP.DTLS;
 using Com.AugustCellars.COSE;
 using Org.BouncyCastle.Crypto.Tls;
@@ -14,55 +13,57 @@ using Org.BouncyCastle.Security;
 
 namespace Com.AugustCellars.CoAP.TLS
 {
-    internal class TLSSession : ISession, ISecureSession
+    public class TLSSession : ISession, ISecureSession
     {
-        private TcpClient _client;
+        private TcpClient _tcpClient;
         private readonly IPEndPoint _ipEndPoint;
         private QueueItem _toSend;
-        private NetworkStream _stm;
-        private readonly OneKey _userKey;
+        private NetworkStream _tcpStream;
+        private readonly TlsKeyPair _userKey;
         private readonly KeySet _clientKeys;
         private readonly TlsKeyPairSet _signingKeys;
         private OneKey _authKey;
         private TLSClient _tlsSession;
         private TlsServerProtocol _tlsServer;
         private TlsClientProtocol _tlsClient;
+#if SUPPORT_TLS_CWT
+        private KeySet CwtTrustKeySet { get; }
+#endif
+        public EventHandler<TlsEvent> TlsEventHandler;
 
         private readonly ConcurrentQueue<QueueItem> _queue = new ConcurrentQueue<QueueItem>();
 
-        public TLSSession(IPEndPoint ipEndPoint, QueueItem toSend, OneKey tlsKey)
+        public TLSSession(IPEndPoint ipEndPoint, QueueItem toSend, TlsKeyPair tlsKey)
         {
             _ipEndPoint = ipEndPoint;
             _toSend = toSend;
             _userKey = tlsKey;
         }
 
-        public TLSSession(IPEndPoint ipEndPoint, QueueItem toSend, KeySet clientKeys, TlsKeyPairSet signingKeys)
+        public TLSSession(IPEndPoint ipEndPoint, QueueItem toSend, KeySet clientKeys, TlsKeyPairSet signingKeys, KeySet cwtTrustKeySet = null)
         {
             _ipEndPoint = ipEndPoint;
             _toSend = toSend;
             _clientKeys = clientKeys;
             _signingKeys = signingKeys;
+#if SUPPORT_TLS_CWT
+            CwtTrustKeySet = cwtTrustKeySet;
+#endif
         }
 
-        public TLSSession(TcpClient client, KeySet clientKeys, TlsKeyPairSet signingKeys)
+        public TLSSession(TcpClient tcpClient, KeySet clientKeys, TlsKeyPairSet signingKeys)
         {
-            _client = client;
-            _ipEndPoint = (IPEndPoint)client.Client.RemoteEndPoint;
+            _tcpClient = tcpClient;
+            _ipEndPoint = (IPEndPoint)tcpClient.Client.RemoteEndPoint;
             _clientKeys = clientKeys;
             _signingKeys = signingKeys;
         }
 
-        public ConcurrentQueue<QueueItem> Queue { get { return _queue; } }
+        public ConcurrentQueue<QueueItem> Queue => _queue;
 
-        public NetworkStream Stream {
-            get {
-                if (_stm == null) _stm = _client.GetStream();
-                return _stm;
-            }
-        }
+        public NetworkStream Stream => _tcpStream ?? (_tcpStream = _tcpClient.GetStream());
 
-        public IPEndPoint EndPoint { get { return _ipEndPoint; } }
+        public IPEndPoint EndPoint => _ipEndPoint;
 
         public bool IsReliable => true;
 
@@ -77,33 +78,46 @@ namespace Com.AugustCellars.CoAP.TLS
         public int MaxSendSize { get; set; } = 1152;
 
         public OneKey AuthenticationKey => _authKey;
+        public Certificate AuthenticationCertificate { get; set; }
+
 
         public void Connect()
         {
-            BasicTlsPskIdentity pskIdentity = null;
+#if SUPPORT_TLS_CWT
+            if (CwtTrustKeySet != null) {
+                _tlsSession = new TLSClient(null, _userKey, CwtTrustKeySet);
 
-            if (_userKey != null) {
-                if (_userKey.HasKeyType((int)COSE.GeneralValuesInt.KeyType_Octet)) {
-                    CBORObject kid = _userKey[COSE.CoseKeyKeys.KeyIdentifier];
+            }
+            else {
+#endif
+                if (_userKey.PrivateKey.HasKeyType((int) COSE.GeneralValuesInt.KeyType_Octet)) {
+                    CBORObject kid = _userKey.PrivateKey[COSE.CoseKeyKeys.KeyIdentifier];
 
+                    BasicTlsPskIdentity pskIdentity = null;
                     if (kid != null) {
-                        pskIdentity = new BasicTlsPskIdentity(kid.GetByteString(), _userKey[CoseKeyParameterKeys.Octet_k].GetByteString());
+                        pskIdentity = new BasicTlsPskIdentity(kid.GetByteString(), _userKey.PrivateKey[CoseKeyParameterKeys.Octet_k].GetByteString());
                     }
                     else {
-                        pskIdentity = new BasicTlsPskIdentity(new byte[0], _userKey[CoseKeyParameterKeys.Octet_k].GetByteString());
+                        pskIdentity = new BasicTlsPskIdentity(new byte[0], _userKey.PrivateKey[CoseKeyParameterKeys.Octet_k].GetByteString());
                     }
+                    _tlsSession = new TLSClient(null, pskIdentity);
                 }
+                else if (_userKey.PrivateKey.HasKeyType((int) COSE.GeneralValuesInt.KeyType_EC2)) {
+                    _tlsSession = new TLSClient(null, _userKey);
+                }
+#if SUPPORT_TLS_CWT
             }
+#endif
+            _tlsSession.TlsEventHandler += OnTlsEvent;
 
-            _tlsSession = new TLSClient(null, pskIdentity);
-            _authKey = _userKey;
+            _authKey = _userKey.PrivateKey;
 
             TlsClientProtocol clientProtocol = new TlsClientProtocol(new SecureRandom());
 
-            _client = new TcpClient(_ipEndPoint.AddressFamily);
+            _tcpClient = new TcpClient(_ipEndPoint.AddressFamily);
 
-            _client.Connect(_ipEndPoint);
-            _stm = _client.GetStream();
+            _tcpClient.Connect(_ipEndPoint);
+            _tcpStream = _tcpClient.GetStream();
 
             clientProtocol.Connect(_tlsSession);
 
@@ -113,13 +127,13 @@ namespace Com.AugustCellars.CoAP.TLS
                 if (cbToRead != 0) {
                     byte[] data = new byte[cbToRead];
                     int cbRead = clientProtocol.ReadOutput(data, 0, cbToRead);
-                    _stm.Write(data, 0, cbRead);
+                    _tcpStream.Write(data, 0, cbRead);
                     sleep = false;
                 }
 
-                if (_stm.DataAvailable) {
+                if (_tcpStream.DataAvailable) {
                     byte[] data = new byte[1024];
-                    int cbRead = _stm.Read(data, 0, data.Length);
+                    int cbRead = _tcpStream.Read(data, 0, data.Length);
                     Array.Resize(ref data, cbRead);
                     clientProtocol.OfferInput(data);
                     sleep = false;
@@ -141,7 +155,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 _toSend = null;
             }
 
-            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+            BeginRead();
 
             WriteData();
         }
@@ -158,16 +172,17 @@ namespace Com.AugustCellars.CoAP.TLS
             //  Make sure we do not startup a listing thread as the correct call is always made
             //  byt the DTLS accept protocol.
 
-            _stm = _client.GetStream();
+            _tcpStream = _tcpClient.GetStream();
+            server.TlsEventHandler += OnTlsEvent;
             serverProtocol.Accept(server);
 
             bool sleep = true;
             while (!server.HandshakeComplete) {
                 sleep = true;
                 
-                if (_stm.DataAvailable) {
+                if (_tcpStream.DataAvailable) {
                     byte[] data = new byte[1024];
-                    int cbRead = _stm.Read(data, 0, data.Length);
+                    int cbRead = _tcpStream.Read(data, 0, data.Length);
                     Array.Resize(ref data, cbRead);
                     serverProtocol.OfferInput(data);
                     sleep = false;
@@ -177,7 +192,7 @@ namespace Com.AugustCellars.CoAP.TLS
                 if (cbToRead != 0) {
                     byte[] data = new byte[cbToRead];
                     int cbRead = serverProtocol.ReadOutput(data, 0, cbToRead);
-                    _stm.Write(data, 0, cbRead);
+                    _tcpStream.Write(data, 0, cbRead);
                     sleep = false;
                 }
 
@@ -187,9 +202,18 @@ namespace Com.AugustCellars.CoAP.TLS
 
             _tlsServer = serverProtocol;
             _authKey = server.AuthenticationKey;
-
-            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+            AuthenticationCertificate = server.AuthenticationCertificate;
         }
+
+        private void OnTlsEvent(object sender, TlsEvent tlsEvent)
+        {
+            EventHandler<TlsEvent> handler = TlsEventHandler;
+            if (handler != null)
+            {
+                handler(sender, tlsEvent);
+            }
+        }
+
 
         public void Stop()
         {
@@ -222,14 +246,16 @@ namespace Com.AugustCellars.CoAP.TLS
                 int cbRead;
                 byte[] buffer = new byte[1024];
 
-                if (!_queue.TryDequeue(out q)) break;
+                if (!_queue.TryDequeue(out q)) {
+                    break;
+                }
 
                 if (_tlsClient != null) {
                     _tlsClient.OfferOutput(q.Data, 0, q.Data.Length);
                     do {
                         cbRead = _tlsClient.ReadOutput(buffer, 0, buffer.Length);
 
-                        _stm.Write(buffer, 0, cbRead);
+                        _tcpStream.Write(buffer, 0, cbRead);
                     } while (cbRead > 0);
                 }
                 else if (_tlsServer != null) {
@@ -237,7 +263,7 @@ namespace Com.AugustCellars.CoAP.TLS
                     do {
                         cbRead = _tlsServer.ReadOutput(buffer, 0, buffer.Length);
 
-                        _stm.Write(buffer, 0, cbRead);
+                        _tcpStream.Write(buffer, 0, cbRead);
                     } while (cbRead > 0);
 
                 }
@@ -260,10 +286,13 @@ namespace Com.AugustCellars.CoAP.TLS
         private static void ReadCallback(IAsyncResult ar)
         {
             try {
-                TLSSession session = (TLSSession)ar.AsyncState;
+                TLSSession session = (TLSSession) ar.AsyncState;
 
-                int cbRead = session._stm.EndRead(ar);
+                int cbRead = session._tcpStream.EndRead(ar);
                 session.ProcessInput(cbRead);
+            }
+            catch (System.IO.IOException) {
+                ; // Ignore this error - but I don't know if that is correct.
             }
             catch (ObjectDisposedException) {
                 ; // Ignore this error
@@ -273,45 +302,47 @@ namespace Com.AugustCellars.CoAP.TLS
         private byte[] _carryOver = null;
         private void ProcessInput(int cbRead)
         {
-            byte[] data;
+                byte[] data;
 
-            byte[] result = new byte[cbRead];
-            Array.Copy(_buffer, 0, result, 0, cbRead);
+                byte[] result = new byte[cbRead];
+                Array.Copy(_buffer, 0, result, 0, cbRead);
 
-            if (_tlsClient != null) {
-                _tlsClient.OfferInput(result);
+                if (_tlsClient != null) {
+                    _tlsClient.OfferInput(result);
 
-                data = new byte[_tlsClient.GetAvailableInputBytes()];
-                _tlsClient.ReadInput(data, 0, data.Length);
-            }
-            else {
-                _tlsServer.OfferInput(result);
+                    data = new byte[_tlsClient.GetAvailableInputBytes()];
+                    _tlsClient.ReadInput(data, 0, data.Length);
+                }
+                else {
+                    _tlsServer.OfferInput(result);
 
-                data = new byte[_tlsServer.GetAvailableInputBytes()];
-                _tlsServer.ReadInput(data, 0, data.Length);
-            }
+                    data = new byte[_tlsServer.GetAvailableInputBytes()];
+                    _tlsServer.ReadInput(data, 0, data.Length);
+                }
 
-            if (data.Length == 0) {
-                _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
-                return;
-            }
+                if (data.Length == 0) {
+                    BeginRead();
+                    return;
+                }
 
-            byte[] bytes = new byte[(_carryOver != null ? _carryOver.Length : 0) + data.Length];
-            if (_carryOver != null) {
-                Array.Copy(_carryOver, bytes, _carryOver.Length);
-                Array.Copy(data, 0, bytes, _carryOver.Length, cbRead);
-            }
-            else Array.Copy(data, bytes, data.Length);
+                byte[] bytes = new byte[(_carryOver != null ? _carryOver.Length : 0) + data.Length];
+                if (_carryOver != null) {
+                    Array.Copy(_carryOver, bytes, _carryOver.Length);
+                    Array.Copy(data, 0, bytes, _carryOver.Length, cbRead);
+                }
+                else {
+                    Array.Copy(data, bytes, data.Length);
+                }
 
-            int cbLeft = bytes.Length;
+                int cbLeft = bytes.Length;
 
-            while (cbLeft > 0) {
-                int messageSize;
+                while (cbLeft > 0) {
+                    int messageSize;
 
-                //  Do I have a full record?
+                    //  Do I have a full record?
 
-                int dataSize = (bytes[0] >> 4) & 0xf;
-                switch (dataSize) {
+                    int dataSize = (bytes[0] >> 4) & 0xf;
+                    switch (dataSize) {
                     case 13:
                         messageSize = bytes[1] + 13 + 3;
                         break;
@@ -327,35 +358,34 @@ namespace Com.AugustCellars.CoAP.TLS
                     default:
                         messageSize = dataSize + 2;
                         break;
+                    }
+
+                    messageSize += (bytes[0] & 0xf); // Add token buffer
+
+                    if (cbLeft >= messageSize) {
+                        byte[] message = new byte[messageSize];
+                        Array.Copy(bytes, message, messageSize);
+                        Array.Copy(bytes, messageSize, bytes, 0, cbLeft - messageSize);
+                        cbLeft -= messageSize;
+
+                        FireDataReceived(message, EndPoint, null, this); // M00BUG
+                    }
+                    else {
+                        break;
+                    }
                 }
-                messageSize += (bytes[0] & 0xf); // Add token buffer
 
-                if (cbLeft >= messageSize) {
-                    byte[] message = new byte[messageSize];
-                    int offset;
-                    Array.Copy(bytes, message, messageSize);
-                    Array.Copy(bytes, messageSize, bytes, 0, cbLeft - messageSize);
-                    offset = cbLeft - messageSize;
-                    cbLeft -= messageSize;
-
-                    FireDataReceived(message, EndPoint, null, this); // M00BUG
+                if (cbLeft > 0) {
+                    _carryOver = new byte[cbLeft];
+                    Array.Copy(bytes, _carryOver, cbLeft);
                 }
                 else {
-                    break;
+                    _carryOver = null;
                 }
-            }
 
-            if (cbLeft > 0) {
-                _carryOver = new byte[cbLeft];
-                Array.Copy(bytes, _carryOver, cbLeft);
-            }
-            else {
-                _carryOver = null;
-            }
-            _stm.BeginRead(_buffer, 0, _buffer.Length, ReadCallback, this);
+                BeginRead();
         }
 
-        /// <inheritdoc/>
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
         private void FireDataReceived(Byte[] data, System.Net.EndPoint ep, System.Net.EndPoint epLocal, TLSSession tcpSession)

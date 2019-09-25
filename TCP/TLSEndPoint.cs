@@ -20,6 +20,8 @@ namespace Com.AugustCellars.CoAP.TLS
     /// </summary>
     public class TLSEndPoint : CoAPEndPoint
     {
+        public event EventHandler<TlsEvent> TlsEventHandler;
+
         /// <inheritdoc/>
         public TLSEndPoint(TlsKeyPairSet signingKeys, KeySet clientKeys) : this(signingKeys, clientKeys, 0, CoapConfig.Default)
         {
@@ -59,6 +61,8 @@ namespace Com.AugustCellars.CoAP.TLS
             Stack.Remove(Stack.Get("Reliability"));
             MessageEncoder = TlsCoapMesageEncoder;
             MessageDecoder = TlsCoapMessageDecoder;
+
+            channel.TlsEventHandler += OnTlsEvent;
         }
 
 
@@ -72,5 +76,14 @@ namespace Com.AugustCellars.CoAP.TLS
             return new TLSMessageEncoder();
         }
 
+        private void OnTlsEvent(Object o, TlsEvent e)
+        {
+            EventHandler<TlsEvent> handler = TlsEventHandler;
+            if (handler != null)
+            {
+                handler(o, e);
+            }
+
+        }
     }
 }
