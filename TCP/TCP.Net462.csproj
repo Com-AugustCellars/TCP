@@ -10,10 +10,19 @@
     <PackageVersion>0.2.0.0</PackageVersion>
     <Version>0.2.0.0</Version>
     <Authors>Jim Schaad</Authors>
-    <Description>Implement the TCP and TLS interface defined by RFC 8323.</Description>
+    <Title>C# Implementation of TCP and TLS transports for CoAP</Title>
+    <Description>
+      Implement the TCP and TLS interface defined by RFC 8323.
+      Current support exists for pre-shared keys and X.509 certificates.
+      The BouncyCastle libraries are used for cryptographic support.
+    </Description>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright @2016-9 Jim Schaad</Copyright>
     <PackageTags>CoAP TLS</PackageTags>
+    <RepositoryUrl>https://github.com/Com-AugustCellars/TCP</RepositoryUrl>
+    <PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+    
+
     
     <PackageReleaseNotes>
 0.2.0
